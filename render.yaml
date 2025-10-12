@@ -1,0 +1,13 @@
+# render.yaml
+services:
+  - type: web
+    name: weather-ml-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MODEL_PATH
+        value: ./models
+      - key: PYTHON_VERSION
+        value: 3.9.0
+    plan: free
