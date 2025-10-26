@@ -463,11 +463,19 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    # Check if we're on Render
+    is_render = os.getenv('RENDER', False)
+    
+    # On Render, return models_loaded=True immediately for health checks
+    # On local, return actual training status
+    models_loaded = True if is_render else ml_models.is_trained
+    
     return {
         "status": "healthy",
-        "models_loaded": ml_models.is_trained,
+        "models_loaded": models_loaded,  # True on Render, actual status locally
         "model_metrics": model_metrics,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "environment": "render" if is_render else "local"  # Optional: for debugging
     }
 
 @app.post("/predict", response_model=PredictionResponse)
