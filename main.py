@@ -335,6 +335,7 @@ class WeatherMLModels:
             })
         
         return predictions
+
     
     def generate_insights(self, current_weather, historical_data):
         """Generate weather insights using ML analysis"""
@@ -440,10 +441,17 @@ ml_models = WeatherMLModels()
 async def startup_event():
     """Initialize ML models on startup"""
     print("🚀 Starting Weather ML API...")
+    
+    # Check if we're in production
+    is_render = os.getenv('RENDER', False)
+    
     try:
         import threading
         def train_models():
-            ml_models.train_models()
+            if is_render:
+                ml_models.train_optimized_models()  # Use optimized training
+            else:
+                ml_models.train_models()  # Use full training locally
         
         training_thread = threading.Thread(target=train_models)
         training_thread.daemon = True
@@ -451,6 +459,7 @@ async def startup_event():
         print("✅ ML model training started in background")
     except Exception as e:
         print(f"❌ Error initializing ML models: {e}")
+
 
 @app.get("/")
 async def root():
@@ -617,6 +626,45 @@ async def generate_insights(request: InsightsRequest):
     except Exception as e:
         logger.error(f"Insights error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Insights error: {str(e)}")
+    
+def train_optimized_models(self):
+    """Optimized training for production environments"""
+    print("🤖 Training OPTIMIZED ML models...")
+    
+    # Reduce data size for production
+    df = self.load_real_weather_data().sample(10000)  # 10k samples instead of 50k
+    
+    # Train only Random Forest (much faster)
+    print("🌳 Training Random Forest (optimized)...")
+    features = ['temperature', 'humidity', 'pressure', 'wind_speed', 'month', 'day_of_year', 'hour']
+    X = df[features].values
+    y = df['temperature'].values
+    
+    split_idx = int(0.8 * len(X))
+    X_train, X_test = X[:split_idx], X[split_idx:]
+    y_train, y_test = y[:split_idx], y[split_idx:]
+    
+    # Use smaller, faster model
+    self.rf_model = RandomForestRegressor(
+        n_estimators=20,  # Reduced from 50
+        max_depth=10,     # Limit depth
+        random_state=42,
+        n_jobs=-1
+    )
+    self.rf_model.fit(X_train, y_train)
+    
+    # Skip LSTM training in production (too slow)
+    print("⏭️  Skipping LSTM training for production performance")
+    
+    self.is_trained = True
+    print("✅ Optimized models trained successfully!")
+    
+    return {
+        "status": "success", 
+        "training_samples": len(df),
+        "models": ["Random Forest (Optimized)"],
+        "environment": "production"
+    }
 
 if __name__ == "__main__":
     import uvicorn
